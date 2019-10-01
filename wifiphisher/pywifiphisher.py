@@ -186,6 +186,10 @@ def parse_args():
         "--force-hostapd",
         help="Force the usage of hostapd installed in the system",
         action='store_true')
+    parser.add_argument(
+        "--hostapd-conf",
+        help="Determine the full path to a custom hostapd.conf file",
+        default="/tmp/hostapd.conf")
     parser.add_argument("-pPD",
                         "--phishing-pages-directory",
                         help="Search for phishing pages in this location")
@@ -382,6 +386,10 @@ class WifiphisherEngine:
 
         if args.dnsmasq_conf:
             self.access_point.dns_conf_path = args.dnsmasq_conf
+
+        if args.hostapd_conf:
+            print("Got flag for custom hostapd.conf")
+            self.access_point.hostapd_conf_path = args.hostapd_conf
 
         if args.credential_log_path:
             phishinghttp.credential_log_path = args.credential_log_path

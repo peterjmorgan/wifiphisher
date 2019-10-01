@@ -43,22 +43,28 @@ class AccessPoint(object):
         self.hostapd_object = None
         self.deny_mac_addrs = []  # type: List[str]
         self.dns_conf_path = constants.DNS_CONF_PATH
+        self.hostapd_conf_path= None
 
     def start_dhcp_dns(self):
         # type: () -> None
         """Start the dhcp server."""
-        config = ('no-resolv\n' 'interface=%s\n' 'dhcp-range=%s\n')
+        if self.dns_conf_path == constants.DNS_CONF_PATH:
+            # dnsmasq not set
+            config = ('no-resolv\n' 'interface=%s\n' 'dhcp-range=%s\n')
+            print("[Pete] overwriting dnsmasq file")
+            with open(self.dns_conf_path, 'w') as dhcpconf:
+                dhcpconf.write(config % (self.interface, constants.DHCP_LEASE))
 
-        with open(self.dns_conf_path, 'w') as dhcpconf:
-            dhcpconf.write(config % (self.interface, constants.DHCP_LEASE))
+            with open(self.dns_conf_path, 'a+') as dhcpconf:
+                if self.internet_interface:
+                    dhcpconf.write("server=%s" % (constants.PUBLIC_DNS, ))
+                else:
+                    dhcpconf.write("address=/google.com/172.217.5.78\n")
+                    dhcpconf.write("address=/clients3.google.com/172.217.11.174\n")
+                    dhcpconf.write("address=/#/%s " % (constants.NETWORK_GW_IP, ))
+        else: # dnsmasq was set
+            print("[Pete] not overwriting dnsmasq file")
 
-        with open(self.dns_conf_path, 'a+') as dhcpconf:
-            if self.internet_interface:
-                dhcpconf.write("server=%s" % (constants.PUBLIC_DNS, ))
-            else:
-                dhcpconf.write("address=/google.com/172.217.5.78\n")
-                dhcpconf.write("address=/clients3.google.com/172.217.11.174\n")
-                dhcpconf.write("address=/#/%s " % (constants.NETWORK_GW_IP, ))
         # catch the exception if dnsmasq is not installed
         try:
             subprocess.Popen(
@@ -130,11 +136,23 @@ class AccessPoint(object):
                 # just raise exception when hostapd is not installed
                 raise Exception
         else:
+            # by default, use the sytem packaged config file
+            hostpad_config_file = hostapdconfig.ROGUEHOSTAPD_RUNTIME_CONFIGPATH
             # use the hostapd on the users' system
-            self.hostapd_object.create_hostapd_conf_file(hostapd_config, {})
+            if self.hostapd_conf_path == None:
+                # hostapd_conf_path wasn't set
+                print("[PETE] hostapd_conf_path not set")
+                self.hostapd_object.create_hostapd_conf_file(hostapd_config, {})
+            else:
+                print("[PETE] hostapd_conf_path = {}".format(self.hostapd_conf_path))
+                hostapd_config_file = self.hostapd_conf_path
+#                with open(hostapd_conf_path, 'r') as infile:
+#                    hostapd_config = infile.read()
+
             try:
                 self.hostapd_object = subprocess.Popen(
-                    ['hostapd', hostapdconfig.ROGUEHOSTAPD_RUNTIME_CONFIGPATH],
+                    #['hostapd', hostapdconfig.ROGUEHOSTAPD_RUNTIME_CONFIGPATH],
+                    ['hostapd', hostapd_config_file],
                     stdout=constants.DN,
                     stderr=constants.DN)
             except OSError:
